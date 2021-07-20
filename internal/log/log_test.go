@@ -3,6 +3,7 @@ package log
 import (
 	api "github.com/DeshErBojhaa/powerlog/api/v1"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -13,6 +14,7 @@ func TestLog(t *testing.T) {
 		"append and read success":   testAppendRead,
 		"offset out of range error": testOutOfRangeErr,
 		"truncate":                  testTruncate,
+		"full reader":               testReader,
 	} {
 		t.Run(msg, func(t *testing.T) {
 			dir, err := ioutil.TempDir("", "log-test")
@@ -59,4 +61,22 @@ func testTruncate(t *testing.T, log *Log) {
 	require.NoError(t, err)
 	_, err = log.Read(0)
 	require.Error(t, err)
+}
+
+func testReader(t *testing.T, log *Log) {
+	rec := &api.Record{
+		Value: []byte("hello world"),
+	}
+	off, err := log.Append(rec)
+	require.NoError(t, err)
+	require.Equal(t, uint64(0), off)
+
+	reader := log.Reader()
+	b, err := ioutil.ReadAll(reader)
+	require.NoError(t, err)
+
+	read := &api.Record{}
+	err = proto.Unmarshal(b[lenWidth:], read)
+	require.NoError(t, err)
+	require.Equal(t, rec.Value, read.Value)
 }
