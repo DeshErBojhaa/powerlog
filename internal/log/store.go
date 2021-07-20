@@ -1,4 +1,4 @@
-package powerlog
+package log
 
 import (
 	"bufio"
@@ -13,8 +13,8 @@ const lenWidth = 8 // Size of uint64
 
 type store struct {
 	*os.File
-	mu sync.Mutex
-	buf *bufio.Writer
+	mu   sync.Mutex
+	buf  *bufio.Writer
 	size uint64
 }
 
