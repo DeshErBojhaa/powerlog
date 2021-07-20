@@ -119,3 +119,7 @@ func (s *segment) Remove() error {
 	}
 	return nil
 }
+
+func (s *segment) IsMaxed() bool {
+	return s.store.size >= s.config.Segment.MaxStoreBytes || s.index.size >= s.config.Segment.MaxIndexBytes
+}
