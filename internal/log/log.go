@@ -1,6 +1,8 @@
 package log
 
 import (
+	"fmt"
+	api "github.com/DeshErBojhaa/powerlog/api/v1"
 	"io"
 	"io/ioutil"
 	"path"
@@ -66,6 +68,17 @@ func (l *Log) setup() error {
 	return nil
 }
 
+func (l *Log) newSegment(off uint64) error {
+	s, err := newSegment(l.Dir, off, l.Config)
+	if err != nil {
+		return err
+	}
+	l.segments = append(l.segments, s)
+	l.activeSegment = s
+	return nil
+}
+
+// Reader returns an io.Reader to read the whole log.
 func (l *Log) Reader() io.Reader {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
@@ -88,12 +101,67 @@ func (o *originReader) Read(p []byte) (int, error) {
 	return n, err
 }
 
-func (l *Log) newSegment(off uint64) error {
-	s, err := newSegment(l.Dir, off, l.Config)
-	if err != nil {
-		return err
+// Truncate removes all segments whose highest offset is
+// lower than lowest. we’ll periodically call Truncate() to
+// remove old segments whose data already processed by then
+// and don’t need anymore.
+func (l *Log) Truncate(lowest uint64) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	var segments []*segment
+	for _, s := range l.segments {
+		if s.nextOffset <= lowest+1 {
+			if err := s.Remove(); err != nil {
+				return err
+			}
+			continue
+		}
+		segments = append(segments, s)
 	}
-	l.segments = append(l.segments, s)
-	l.activeSegment = s
+	l.segments = segments
+	return nil
+}
+
+// Append appends a record to the log. We append the record to the
+// active segment. Afterward, if the segment is at its max size
+// (per the max size configs), then we make a new active segment.
+func (l *Log) Append(record *api.Record) (uint64, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	off, err := l.activeSegment.Append(record)
+	if err != nil {
+		return 0, err
+	}
+	if l.activeSegment.IsMaxed() {
+		err = l.newSegment(off + 1)
+	}
+	return off, err
+}
+
+func (l *Log) Read(off uint64) (*api.Record, error) {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	var s *segment
+	for _, seg := range l.segments {
+		if seg.baseOffset <= off && off < seg.nextOffset {
+			s = seg
+			break
+		}
+	}
+	if s == nil || s.nextOffset <= off {
+		return nil, fmt.Errorf("offset out of range: %d", off)
+	}
+	return s.Read(off)
+}
+
+func (l *Log) Close() error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	for _, seg := range l.segments {
+		if err := seg.Close(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
