@@ -3,9 +3,10 @@ package log
 import (
 	"fmt"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/reflect/protoreflect"
 	"os"
 	"path"
+
+	api "github.com/DeshErBojhaa/powerlog/api/v1"
 )
 
 type segment struct {
@@ -14,15 +15,6 @@ type segment struct {
 	baseOffset uint64
 	nextOffset uint64
 	config     Config
-}
-
-type record struct {
-	Offset uint64
-	Value  []byte
-}
-
-func (x *record) ProtoReflect() protoreflect.Message {
-	return nil
 }
 
 func newSegment(dir string, baseOffset uint64, c Config) (*segment, error) {
@@ -68,7 +60,7 @@ func newSegment(dir string, baseOffset uint64, c Config) (*segment, error) {
 // the segment’s next offset from its base offset (which are both
 // absolute offsets) to get the entry’s relative offset in the segment.
 // We then increment the next offset to prep for a future append call.
-func (s *segment) Append(record *record) (uint64, error) {
+func (s *segment) Append(record *api.Record) (uint64, error) {
 	cur := s.nextOffset
 	record.Offset = cur
 	p, err := proto.Marshal(record)
@@ -91,7 +83,7 @@ func (s *segment) Append(record *record) (uint64, error) {
 // index into a relative offset and get the associated index entry.
 // Once it has the index entry, the segment can go straight to the
 // record’s position in the store and read the proper amount of data
-func (s *segment) Read(off uint64) (*record, error) {
+func (s *segment) Read(off uint64) (*api.Record, error) {
 	_, pos, err := s.index.Read(int64(off - s.baseOffset))
 	if err != nil {
 		return nil, err
@@ -100,7 +92,7 @@ func (s *segment) Read(off uint64) (*record, error) {
 	if err != nil {
 		return nil, err
 	}
-	record := &record{}
+	record := &api.Record{}
 	err = proto.Unmarshal(p, record)
 	return record, err
 }
