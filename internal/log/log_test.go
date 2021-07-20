@@ -12,6 +12,7 @@ func TestLog(t *testing.T) {
 	for msg, fn := range map[string]func(t *testing.T, log *Log){
 		"append and read success":   testAppendRead,
 		"offset out of range error": testOutOfRangeErr,
+		"truncate":                  testTruncate,
 	} {
 		t.Run(msg, func(t *testing.T) {
 			dir, err := ioutil.TempDir("", "log-test")
@@ -43,5 +44,19 @@ func testAppendRead(t *testing.T, log *Log) {
 func testOutOfRangeErr(t *testing.T, log *Log) {
 	read, err := log.Read(1)
 	require.Nil(t, read)
+	require.Error(t, err)
+}
+
+func testTruncate(t *testing.T, log *Log) {
+	rec := &api.Record{
+		Value: []byte("hello world"),
+	}
+	for i := 0; i < 3; i++ {
+		_, err := log.Append(rec)
+		require.NoError(t, err)
+	}
+	err := log.Truncate(1)
+	require.NoError(t, err)
+	_, err = log.Read(0)
 	require.Error(t, err)
 }
