@@ -2,6 +2,8 @@ package log
 
 import (
 	"fmt"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"os"
 	"path"
 )
@@ -12,6 +14,15 @@ type segment struct {
 	baseOffset uint64
 	nextOffset uint64
 	config     Config
+}
+
+type record struct {
+	Offset uint64
+	Value  []byte
+}
+
+func (x *record) ProtoReflect() protoreflect.Message {
+	return nil
 }
 
 func newSegment(dir string, baseOffset uint64, c Config) (*segment, error) {
@@ -47,6 +58,51 @@ func newSegment(dir string, baseOffset uint64, c Config) (*segment, error) {
 		s.nextOffset = baseOffset + uint64(off) + 1
 	}
 	return s, nil
+}
+
+// Append writes the record to the segment and returns the newly
+// appended record’s offset. The log returns the offset to the
+// API response. The segment appends a record in a two-step process:
+// it appends the data to the store and then adds an index entry.
+// Since index offsets are relative to the base offset, we subtract
+// the segment’s next offset from its base offset (which are both
+// absolute offsets) to get the entry’s relative offset in the segment.
+// We then increment the next offset to prep for a future append call.
+func (s *segment) Append(record *record) (uint64, error) {
+	cur := s.nextOffset
+	record.Offset = cur
+	p, err := proto.Marshal(record)
+	if err != nil {
+		return 0, err
+	}
+	_, pos, err := s.store.Append(p)
+	if err != nil {
+		return 0, err
+	}
+	if err = s.index.Write(uint32(s.nextOffset-s.baseOffset), pos); err != nil {
+		return 0, err
+	}
+	s.nextOffset++
+	return cur, nil
+}
+
+// Read returns the record for the given offset. Similar to writes,
+// to read a record the segment must first translate the absolute
+// index into a relative offset and get the associated index entry.
+// Once it has the index entry, the segment can go straight to the
+// record’s position in the store and read the proper amount of data
+func (s *segment) Read(off uint64) (*record, error) {
+	_, pos, err := s.index.Read(int64(off - s.baseOffset))
+	if err != nil {
+		return nil, err
+	}
+	p, err := s.store.Read(pos)
+	if err != nil {
+		return nil, err
+	}
+	record := &record{}
+	err = proto.Unmarshal(p, record)
+	return record, err
 }
 
 func (s *segment) Close() error {
