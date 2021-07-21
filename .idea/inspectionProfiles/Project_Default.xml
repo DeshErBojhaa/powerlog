@@ -9,6 +9,7 @@
         <function importPath="fmt" name="Println" />
         <function importPath="fmt" name="Print" />
         <function importPath="os" name="Remove" />
+        <function importPath="os" name="RemoveAll" />
       </functions>
     </inspection_tool>
   </profile>
