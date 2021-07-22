@@ -9,7 +9,7 @@ import (
 	"sync"
 )
 
-type replicator struct {
+type Replicator struct {
 	mu sync.Mutex
 
 	DialOptions []grpc.DialOption
@@ -20,7 +20,7 @@ type replicator struct {
 	close       chan struct{}
 }
 
-func (r *replicator) Join(name, addr string) error {
+func (r *Replicator) Join(name, addr string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -38,7 +38,7 @@ func (r *replicator) Join(name, addr string) error {
 	return nil
 }
 
-func (r *replicator) replicate(addr string, leave chan struct{}) {
+func (r *Replicator) replicate(addr string, leave chan struct{}) {
 	cc, err := grpc.Dial(addr, r.DialOptions...)
 	if err != nil {
 		r.logger.Error(fmt.Sprintf("%v failed to dial %s", err, addr))
@@ -82,9 +82,9 @@ func (r *replicator) replicate(addr string, leave chan struct{}) {
 	}
 }
 
-func (r *replicator) init() {
+func (r *Replicator) init() {
 	if r.logger == nil {
-		r.logger = zap.L().Named("replicator")
+		r.logger = zap.L().Named("Replicator")
 	}
 	if r.servers == nil {
 		r.servers = make(map[string]chan struct{})
@@ -94,7 +94,7 @@ func (r *replicator) init() {
 	}
 }
 
-func (r *replicator) Close() error {
+func (r *Replicator) Close() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.init()
@@ -109,7 +109,7 @@ func (r *replicator) Close() error {
 // Leave method handles the server leaving the cluster by removing
 // the server from the list of servers to replicate and closes the
 // server’s associated channel.
-func (r *replicator) Leave(name string) error {
+func (r *Replicator) Leave(name string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.init()
@@ -121,7 +121,7 @@ func (r *replicator) Leave(name string) error {
 	return nil
 }
 
-func (r *replicator) logError(err error, msg, addr string) {
+func (r *Replicator) logError(err error, msg, addr string) {
 	r.logger.Error(
 		msg,
 		zap.String("addr", addr),
