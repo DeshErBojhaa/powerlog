@@ -102,7 +102,7 @@ func (a *Agent) setupMembership() error {
 		return err
 	}
 	var opts []grpc.DialOption
-	conn, err := grpc.Dial(rpcAddr, opts...)
+	conn, err := grpc.Dial(rpcAddr, grpc.WithInsecure())
 	if err != nil {
 		return err
 	}

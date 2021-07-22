@@ -39,7 +39,8 @@ func (r *Replicator) Join(name, addr string) error {
 }
 
 func (r *Replicator) replicate(addr string, leave chan struct{}) {
-	cc, err := grpc.Dial(addr, r.DialOptions...)
+	//cc, err := grpc.Dial(addr, r.DialOptions...)
+	cc, err := grpc.Dial(addr, grpc.WithInsecure())
 	if err != nil {
 		r.logger.Error(fmt.Sprintf("%v failed to dial %s", err, addr))
 	}
