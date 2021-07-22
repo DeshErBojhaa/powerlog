@@ -3,7 +3,17 @@ package server
 import (
 	"context"
 	api "github.com/DeshErBojhaa/powerlog/api/v1"
+	grpcMiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpcCtxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
+	"go.opencensus.io/plugin/ocgrpc"
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/trace"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
+	"time"
+
+	grpcZap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 )
 
 //CommitLog describes the functionality for the gRPC server.
@@ -23,7 +33,28 @@ type grpcServer struct {
 
 var _ api.LogServer = (*grpcServer)(nil)
 
-func NewgRPCServer(config *Config) (*grpc.Server, error) {
+func NewgRPCServer(config *Config, grpcOpts ...grpc.ServerOption) (*grpc.Server, error) {
+	logger := zap.L().Named("server")
+	zapOpts := []grpcZap.Option{
+		grpcZap.WithDurationField(
+			func(duration time.Duration) zapcore.Field {
+				return zap.Int64("grpc.time_ns", duration.Nanoseconds())
+			}),
+	}
+	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
+	err := view.Register(ocgrpc.DefaultServerViews...)
+	if err != nil {
+		return nil, err
+	}
+
+	grpcOpts = append(grpcOpts,
+		grpc.StreamInterceptor(
+			grpcMiddleware.ChainStreamServer(
+				grpcCtxtags.StreamServerInterceptor(),
+				grpcZap.StreamServerInterceptor(logger, zapOpts...))),
+		grpc.StatsHandler(&ocgrpc.ServerHandler{}),
+	)
+
 	gsrv := grpc.NewServer()
 	srv, err := newgrpcServer(config)
 	if err != nil {
