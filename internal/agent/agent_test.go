@@ -60,6 +60,14 @@ func TestAgent(t *testing.T) {
 		&api.ConsumeRequest{Offset: produceResp.Offset})
 	require.NoError(t, err)
 	require.Equal(t, consumeResp.Record.Value, []byte("foo"))
+
+	time.Sleep(3 * time.Second)
+	follower := client(t, agents[1])
+	consumeResp, err = follower.Consume(
+		context.Background(),
+		&api.ConsumeRequest{Offset: produceResp.Offset})
+	require.NoError(t, err)
+	require.Equal(t, consumeResp.Record.Value, []byte("foo"))
 }
 
 func client(t *testing.T, agent *agent.Agent) api.LogClient {
