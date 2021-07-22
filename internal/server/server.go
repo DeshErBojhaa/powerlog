@@ -65,9 +65,6 @@ func (s *grpcServer) ProduceStream(stream api.Log_ProduceStreamServer) error {
 	}
 }
 
-// ErrOffsetOutOfRange shut up IDE linter
-type ErrOffsetOutOfRange error
-
 // ConsumeStream implements a server-side streaming RPC so
 // the client can tell the server where in the log to read
 // records, and then the server will stream every record that
@@ -84,7 +81,7 @@ func (s *grpcServer) ConsumeStream(req *api.ConsumeRequest,
 			res, err := s.Consume(stream.Context(), req)
 			switch err.(type) {
 			case nil:
-			case ErrOffsetOutOfRange:
+			case api.ErrOffsetOutOfRange:
 				continue
 			default:
 				return err
