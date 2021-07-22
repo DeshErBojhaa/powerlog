@@ -93,3 +93,30 @@ func (r *replicator) init() {
 		r.close = make(chan struct{})
 	}
 }
+
+func (r *replicator) Close() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.init()
+	if r.closed {
+		return nil
+	}
+	r.closed = true
+	close(r.close)
+	return nil
+}
+
+// Leave method handles the server leaving the cluster by removing
+// the server from the list of servers to replicate and closes the
+// server’s associated channel.
+func (r *replicator) Leave(name string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.init()
+	if _, ok := r.servers[name]; !ok {
+		return nil
+	}
+	close(r.servers[name])
+	delete(r.servers, name)
+	return nil
+}
