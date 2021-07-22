@@ -49,7 +49,7 @@ func (r *replicator) replicate(addr string, leave chan struct{}) {
 	client := api.NewLogClient(cc)
 	stream, err := client.ConsumeStream(ctx, &api.ConsumeRequest{Offset: 0})
 	if err != nil {
-		r.logger.Error(fmt.Sprintf("%v failed to consume %s", err, addr))
+		r.logError(err, "fauled to consume", addr)
 		return
 	}
 
@@ -58,7 +58,7 @@ func (r *replicator) replicate(addr string, leave chan struct{}) {
 		for {
 			recv, err := stream.Recv()
 			if err != nil {
-				r.logger.Error(fmt.Sprintf("%v failed to receive %s", err, addr))
+				r.logError(err, "failed to receive", addr)
 				return
 			}
 			records <- recv.Record
@@ -74,7 +74,7 @@ func (r *replicator) replicate(addr string, leave chan struct{}) {
 		case record := <-records:
 			_, err := r.LocalServer.Produce(ctx, &api.ProduceRequest{Record: record})
 			if err != nil {
-				r.logger.Error(fmt.Sprintf("%v failed to produce %s", err, addr))
+				r.logError(err, "failed to produce", addr)
 				return
 			}
 
@@ -119,4 +119,12 @@ func (r *replicator) Leave(name string) error {
 	close(r.servers[name])
 	delete(r.servers, name)
 	return nil
+}
+
+func (r *replicator) logError(err error, msg, addr string) {
+	r.logger.Error(
+		msg,
+		zap.String("addr", addr),
+		zap.Error(err),
+	)
 }
