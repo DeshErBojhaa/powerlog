@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	api "github.com/DeshErBojhaa/powerlog/api/v1"
+	"google.golang.org/grpc"
 )
 
 //CommitLog describes the functionality for the gRPC server.
@@ -22,11 +23,18 @@ type grpcServer struct {
 
 var _ api.LogServer = (*grpcServer)(nil)
 
-func newgrpcServer(config *Config) (*grpcServer, error) {
-	srv := &grpcServer{
-		Config: config,
+func NewgRPCServer(config *Config) (*grpc.Server, error) {
+	gsrv := grpc.NewServer()
+	srv, err := newgrpcServer(config)
+	if err != nil {
+		return nil, err
 	}
-	return srv, nil
+	api.RegisterLogServer(gsrv, srv)
+	return gsrv, nil
+}
+
+func newgrpcServer(config *Config) (*grpcServer, error) {
+	return &grpcServer{Config: config}, nil
 }
 
 func (s *grpcServer) Produce(ctx context.Context, req *api.ProduceRequest) (
