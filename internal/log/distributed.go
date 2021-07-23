@@ -3,6 +3,7 @@ package log
 import (
 	"bytes"
 	"fmt"
+	api "github.com/DeshErBojhaa/powerlog/api/v1"
 	"github.com/hashicorp/raft"
 	raftBoltDB "github.com/hashicorp/raft-boltdb"
 	"io"
@@ -125,27 +126,46 @@ func newLogStore(dir string, config Config) (*logStore, error) {
 }
 
 func (l logStore) FirstIndex() (uint64, error) {
-	panic("implement me")
+	return l.LowestOffset()
 }
 
 func (l logStore) LastIndex() (uint64, error) {
-	panic("implement me")
+	return l.HighestOffset()
 }
 
-func (l logStore) GetLog(index uint64, log *raft.Log) error {
-	panic("implement me")
+func (l logStore) GetLog(index uint64, ret *raft.Log) error {
+	in, err := l.Read(index)
+	if err != nil {
+		return err
+	}
+	ret.Data = in.Value
+	ret.Index = in.Offset
+	ret.Type = raft.LogType(in.Type)
+	ret.Term = in.Term
+	return nil
 }
 
-func (l logStore) StoreLog(log *raft.Log) error {
-	panic("implement me")
+func (l logStore) StoreLog(record *raft.Log) error {
+	return l.StoreLogs([]*raft.Log{record})
 }
 
-func (l logStore) StoreLogs(logs []*raft.Log) error {
-	panic("implement me")
+func (l logStore) StoreLogs(records []*raft.Log) error {
+	for _, record := range records {
+		if _, err := l.Append(
+			&api.Record{
+				Value: record.Data,
+				Term:  record.Term,
+				Type:  uint32(record.Type),
+			}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
+// DeleteRange removes the records between the offsets.
 func (l logStore) DeleteRange(min, max uint64) error {
-	panic("implement me")
+	return l.Truncate(max)
 }
 
 type fsm struct {
