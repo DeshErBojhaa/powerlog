@@ -45,6 +45,7 @@ func TestMultipleNodes(t *testing.T) {
 
 		l, err := log.NewDistributedLog(dataDir, config)
 		require.NoError(t, err)
+
 		if i != 0 {
 			err = logs[0].Join(fmt.Sprintf("%d", i), ln.Addr().String())
 			require.NoError(t, err)
