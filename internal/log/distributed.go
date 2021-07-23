@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/hashicorp/raft"
-	raftboltdb "github.com/hashicorp/raft-boltdb"
+	raftBoltDB "github.com/hashicorp/raft-boltdb"
 	"io"
 	"net"
 	"os"
@@ -14,8 +14,8 @@ import (
 
 type DistributedLog struct {
 	config Config
-	log *Log
-	raft *raft.Raft
+	log    *Log
+	raft   *raft.Raft
 }
 
 func NewDistributedLog(dataDir string, config Config) (*DistributedLog, error) {
@@ -50,7 +50,7 @@ func (dl *DistributedLog) setupRaft(dataDir string) error {
 	if err != nil {
 		return err
 	}
-	stableStore, err := raftboltdb.NewBoltStore(filepath.Join(dataDir, "raft", "stable"))
+	stableStore, err := raftBoltDB.NewBoltStore(filepath.Join(dataDir, "raft", "stable"))
 	if err != nil {
 		return err
 	}
@@ -63,7 +63,7 @@ func (dl *DistributedLog) setupRaft(dataDir string) error {
 		return err
 	}
 	maxpool := 5
-	timeout := 10*time.Second
+	timeout := 10 * time.Second
 	transport := raft.NewNetworkTransport(
 		dl.config.Raft.StreamLayer,
 		maxpool,
@@ -103,7 +103,7 @@ func (dl *DistributedLog) setupRaft(dataDir string) error {
 	if dl.config.Raft.Bootstrap && !hasState {
 		config := raft.Configuration{
 			Servers: []raft.Server{{
-				ID: config.LocalID,
+				ID:      config.LocalID,
 				Address: transport.LocalAddr(),
 			}},
 		}
@@ -112,8 +112,40 @@ func (dl *DistributedLog) setupRaft(dataDir string) error {
 	return err
 }
 
-func newLogStore(dir string, config Config) (interface{}, error}) {
-	return nil, nil
+type logStore struct {
+	*Log
+}
+
+func newLogStore(dir string, config Config) (*logStore, error) {
+	log, err := NewLog(dir, config)
+	if err != nil {
+		return nil, err
+	}
+	return &logStore{log}, nil
+}
+
+func (l logStore) FirstIndex() (uint64, error) {
+	panic("implement me")
+}
+
+func (l logStore) LastIndex() (uint64, error) {
+	panic("implement me")
+}
+
+func (l logStore) GetLog(index uint64, log *raft.Log) error {
+	panic("implement me")
+}
+
+func (l logStore) StoreLog(log *raft.Log) error {
+	panic("implement me")
+}
+
+func (l logStore) StoreLogs(logs []*raft.Log) error {
+	panic("implement me")
+}
+
+func (l logStore) DeleteRange(min, max uint64) error {
+	panic("implement me")
 }
 
 type fsm struct {
@@ -137,6 +169,7 @@ const RaftRPC = 1
 type StreamLayer struct {
 	ln net.Listener
 }
+
 var _ raft.StreamLayer = (*StreamLayer)(nil)
 
 func (s *StreamLayer) Dial(addr raft.ServerAddress, timeout time.Duration) (net.Conn, error) {
