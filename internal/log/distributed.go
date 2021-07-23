@@ -64,11 +64,11 @@ func (dl *DistributedLog) setupRaft(dataDir string) error {
 	if err != nil {
 		return err
 	}
-	maxpool := 5
+	maxPool := 5
 	timeout := 10 * time.Second
 	transport := raft.NewNetworkTransport(
 		dl.config.Raft.StreamLayer,
-		maxpool,
+		maxPool,
 		timeout,
 		os.Stderr)
 	config := raft.DefaultConfig()
@@ -166,6 +166,7 @@ func (l logStore) StoreLogs(records []*raft.Log) error {
 
 // DeleteRange removes the records between the offsets.
 func (l logStore) DeleteRange(min, max uint64) error {
+	_ = min
 	return l.Truncate(max)
 }
 
