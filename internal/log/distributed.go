@@ -322,6 +322,10 @@ type StreamLayer struct {
 
 var _ raft.StreamLayer = (*StreamLayer)(nil)
 
+func NewStreamLayer(ln net.Listener) *StreamLayer {
+	return &StreamLayer{ln: ln}
+}
+
 func (s *StreamLayer) Dial(addr raft.ServerAddress, timeout time.Duration) (net.Conn, error) {
 	dialer := &net.Dialer{Timeout: timeout}
 	var conn, err = dialer.Dial("tcp", string(addr))
