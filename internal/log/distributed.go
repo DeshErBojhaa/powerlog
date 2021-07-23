@@ -114,6 +114,64 @@ func (dl *DistributedLog) setupRaft(dataDir string) error {
 	return err
 }
 
+func (dl *DistributedLog) Join(id, addr string) error {
+	configFuture := dl.raft.GetConfiguration()
+	if err := configFuture.Error(); err != nil {
+		return err
+	}
+	serverID := raft.ServerID(id)
+	serverAddr := raft.ServerAddress(addr)
+	for _, srv := range configFuture.Configuration().Servers {
+		if srv.ID != serverID && srv.Address != serverAddr {
+			continue
+		}
+		if srv.ID == serverID && srv.Address == serverAddr {
+			// Already joined
+			return nil
+		}
+		// Remove the existing server
+		removeFuture := dl.raft.RemoveServer(serverID, 0, 0)
+		if err := removeFuture.Error(); err != nil {
+			return err
+		}
+	}
+	addFuture := dl.raft.AddVoter(serverID, serverAddr, 0, 0)
+	if err := addFuture.Error(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (dl *DistributedLog) Leave(id string) error {
+	removeFuture := dl.raft.RemoveServer(raft.ServerID(id), 0, 0)
+	return removeFuture.Error()
+}
+
+func (dl *DistributedLog) WaitFOrLeader(timeout time.Duration) error {
+	timeoutCh := time.After(timeout)
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-timeoutCh:
+			return fmt.Errorf("timed out")
+		case <-ticker.C:
+			if l := dl.raft.Leader(); l != "" {
+				return nil
+			}
+		}
+	}
+}
+
+func (dl *DistributedLog) Close() error {
+	future := dl.raft.Shutdown()
+	if err := future.Error(); err != nil {
+		return err
+	}
+	return dl.log.Close()
+}
+
 type logStore struct {
 	*Log
 }
