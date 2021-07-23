@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -58,9 +59,43 @@ func TestMultipleNodes(t *testing.T) {
 		{Value: []byte("second")},
 	}
 
-	//for _, record := range records {
-	//	off, err := logs[0].
-	//}
+	for _, record := range records {
+		off, err := logs[0].Append(record)
+		require.NoError(t, err)
+		require.Eventually(t, func() bool {
+			for j := 0; j < nodeCount; j++ {
+				got, err := logs[j].Read(off)
+				if err != nil {
+					return false
+				}
+				record.Offset = off
+				if !reflect.DeepEqual(got.Value, record.Value) {
+					return false
+				}
+			}
+			return true
+		}, 500*time.Millisecond, 50*time.Millisecond)
+	}
+
+	err := logs[0].Leave("1")
+	require.NoError(t, err)
+
+	time.Sleep(50 * time.Millisecond)
+	off, err := logs[0].Append(
+		&api.Record{
+			Value: []byte("third"),
+		})
+	require.NoError(t, err)
+
+	time.Sleep(50 * time.Millisecond)
+	record, err := logs[1].Read(off)
+	require.IsType(t, api.ErrOffsetOutOfRange{}, err)
+	require.Nil(t, record)
+
+	record, err = logs[2].Read(off)
+	require.NoError(t, err)
+	require.Equal(t, []byte("third"), record.Value)
+	require.Equal(t, off, record.Offset)
 }
 
 func getPort(n int) []int {
