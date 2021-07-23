@@ -114,6 +114,50 @@ func (dl *DistributedLog) setupRaft(dataDir string) error {
 	return err
 }
 
+func (dl *DistributedLog) Append(record *api.Record) (uint64, error) {
+	res, err := dl.apply(
+		AppendRequestType,
+		&api.ProduceRequest{Record: record},
+	)
+	if err != nil {
+		return 0, err
+	}
+	return res.(*api.ProduceResponse).Offset, nil
+}
+
+func (dl *DistributedLog) apply(reqType RequestType, req proto.Message) (
+	interface{},
+	error,
+) {
+	var buf bytes.Buffer
+	_, err := buf.Write([]byte{byte(reqType)})
+	if err != nil {
+		return nil, err
+	}
+	b, err := proto.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+	_, err = buf.Write(b)
+	if err != nil {
+		return nil, err
+	}
+	timeout := 10 * time.Second
+	future := dl.raft.Apply(buf.Bytes(), timeout)
+	if future.Error() != nil {
+		return nil, future.Error()
+	}
+	res := future.Response()
+	if err, ok := res.(error); ok {
+		return nil, err
+	}
+	return res, nil
+}
+
+func (dl *DistributedLog) Read(offset uint64) (*api.Record, error) {
+	return dl.log.Read(offset)
+}
+
 func (dl *DistributedLog) Join(id, addr string) error {
 	configFuture := dl.raft.GetConfiguration()
 	if err := configFuture.Error(); err != nil {
