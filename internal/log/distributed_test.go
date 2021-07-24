@@ -18,7 +18,6 @@ func TestMultipleNodes(t *testing.T) {
 	nodeCount := 3
 	logs := make([]*log.DistributedLog, 0, nodeCount)
 	ports := getPort(nodeCount)
-	t.Logf("Ports %v\n", ports)
 	for i := 0; i < nodeCount; i++ {
 		dataDir, err := ioutil.TempDir("", "distribute-log-test")
 		require.NoError(t, err)
