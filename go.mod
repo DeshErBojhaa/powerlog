@@ -18,6 +18,7 @@ require (
 	github.com/hashicorp/serf v0.9.5
 	github.com/miekg/dns v1.1.43 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/soheilhy/cmux v0.1.5 // indirect
 	github.com/stretchr/testify v1.7.0
 	go.opencensus.io v0.23.0
 	go.uber.org/atomic v1.9.0 // indirect

@@ -166,21 +166,27 @@ func (dl *DistributedLog) Join(id, addr string) error {
 	serverID := raft.ServerID(id)
 	serverAddr := raft.ServerAddress(addr)
 	for _, srv := range configFuture.Configuration().Servers {
-		if srv.ID != serverID && srv.Address != serverAddr {
-			continue
-		}
-		if srv.ID == serverID && srv.Address == serverAddr {
-			// Already joined
-			return nil
-		}
-		// Remove the existing server
-		removeFuture := dl.raft.RemoveServer(serverID, 0, 0)
-		if err := removeFuture.Error(); err != nil {
-			return err
+		fmt.Printf("       ****** %s with addr %s  wants to join %s with addr %s\n", serverID, serverAddr,
+			srv.ID, srv.Address)
+		if srv.ID == serverID || srv.Address == serverAddr {
+			if srv.ID == serverID && srv.Address == serverAddr {
+				// Already joined
+				fmt.Printf("       ****** %s with addr %s Already joined\n", serverID, serverAddr)
+				return nil
+			}
+			// Remove existing faulted server.
+			fmt.Printf("       ****** %s with addr %s Removeing\n", serverID, serverAddr)
+			removeFuture := dl.raft.RemoveServer(serverID, 0, 0)
+			if err := removeFuture.Error(); err != nil {
+				return err
+			}
 		}
 	}
+
 	addFuture := dl.raft.AddVoter(serverID, serverAddr, 0, 0)
-	if err := addFuture.Error(); err != nil {
+	err := addFuture.Error()
+	fmt.Printf("       ****** %s with addr %s Added With Error %v\n", serverID, serverAddr, err)
+	if err != nil {
 		return err
 	}
 	return nil
