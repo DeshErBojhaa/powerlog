@@ -7,6 +7,7 @@ import (
 	"github.com/DeshErBojhaa/powerlog/internal/agent"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 	"io/ioutil"
 	"net"
 	"os"
@@ -17,7 +18,7 @@ import (
 func TestAgent(t *testing.T) {
 	var agents = make([]*agent.Agent, 0, 3)
 	for i := 0; i < 3; i++ {
-		ports := getPort(2)
+		ports := getPort(i, 2)
 		bindAddr := fmt.Sprintf("%s:%d", "127.0.0.1", ports[0])
 		rpcPort := ports[1]
 
@@ -37,6 +38,7 @@ func TestAgent(t *testing.T) {
 			BindAddr:       bindAddr,
 			RPCPort:        rpcPort,
 			DataDir:        dataDir,
+			Bootstrap:      i == 0,
 		})
 		require.NoError(t, err)
 		agents = append(agents, a)
@@ -68,6 +70,16 @@ func TestAgent(t *testing.T) {
 		&api.ConsumeRequest{Offset: produceResp.Offset})
 	require.NoError(t, err)
 	require.Equal(t, consumeResp.Record.Value, []byte("foo"))
+
+	consumeResp, err = leader.Consume(
+		context.Background(),
+		&api.ConsumeRequest{Offset: produceResp.Offset + 1},
+	)
+	require.Nil(t, consumeResp)
+	require.Error(t, err)
+	got := status.Code(err)
+	want := status.Code(api.ErrOffsetOutOfRange{}.GRPCStatus().Err())
+	require.Equal(t, got, want)
 }
 
 func client(t *testing.T, agent *agent.Agent) api.LogClient {
@@ -79,9 +91,13 @@ func client(t *testing.T, agent *agent.Agent) api.LogClient {
 	return client
 }
 
-func getPort(n int) []int {
+func getPort(idx, n int) []int {
 	ret := make([]int, 0, n)
-	for _, p := range []int{34567, 23567, 27654, 37547, 44444, 36459} {
+	start := idx * n
+	for i, p := range []int{22221, 22222, 22223, 22224, 22225, 22226, 22227} {
+		if i < start {
+			continue
+		}
 		l, err := net.ListenTCP("tcp", &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: p})
 		if err != nil {
 			continue
