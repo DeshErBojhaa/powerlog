@@ -5,6 +5,7 @@ import (
 	"fmt"
 	api "github.com/DeshErBojhaa/powerlog/api/v1"
 	"github.com/DeshErBojhaa/powerlog/internal/agent"
+	"github.com/DeshErBojhaa/powerlog/internal/loadbalance"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
@@ -57,6 +58,7 @@ func TestAgent(t *testing.T) {
 		&api.ProduceRequest{Record: &api.Record{Value: []byte("foo")}})
 	require.NoError(t, err)
 
+	time.Sleep(3 * time.Second)
 	consumeResp, err := leader.Consume(
 		context.Background(),
 		&api.ConsumeRequest{Offset: produceResp.Offset})
@@ -85,7 +87,10 @@ func TestAgent(t *testing.T) {
 func client(t *testing.T, agent *agent.Agent) api.LogClient {
 	rpcAddr, err := agent.Config.RPCAddr()
 	require.NoError(t, err)
-	conn, err := grpc.Dial(rpcAddr, grpc.WithInsecure()) // TODO : fix
+	conn, err := grpc.Dial(
+		fmt.Sprintf("%s:///%s", loadbalance.Name, rpcAddr),
+		grpc.WithInsecure(), // TODO : fix
+	)
 	require.NoError(t, err)
 	client := api.NewLogClient(conn)
 	return client

@@ -217,6 +217,22 @@ func (dl *DistributedLog) Close() error {
 	return dl.log.Close()
 }
 
+func (dl *DistributedLog) GetServers() ([]*api.Server, error) {
+	config := dl.raft.GetConfiguration()
+	if err := config.Error(); err != nil {
+		return nil, err
+	}
+	var servers []*api.Server
+	for _, server := range config.Configuration().Servers {
+		servers = append(servers, &api.Server{
+			Id:       string(server.ID),
+			RpcAddr:  string(server.Address),
+			IsLeader: server.Address == dl.raft.Leader(),
+		})
+	}
+	return servers, nil
+}
+
 type logStore struct {
 	*Log
 }

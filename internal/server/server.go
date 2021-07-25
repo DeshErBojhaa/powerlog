@@ -22,8 +22,13 @@ type CommitLog interface {
 	Read(uint64) (*api.Record, error)
 }
 
+type GetServer interface {
+	GetServers() ([]*api.Server, error)
+}
+
 type Config struct {
 	CommitLog CommitLog
+	GetServer GetServer
 }
 
 type grpcServer struct {
@@ -131,4 +136,13 @@ func (s *grpcServer) ConsumeStream(req *api.ConsumeRequest,
 			req.Offset++
 		}
 	}
+}
+
+func (s *grpcServer) GetServers(ctx context.Context, req *api.GetServerRequest) (
+	*api.GetServerResponse, error) {
+	servers, err := s.GetServer.GetServers()
+	if err != nil {
+		return nil, err
+	}
+	return &api.GetServerResponse{Servers: servers}, nil
 }

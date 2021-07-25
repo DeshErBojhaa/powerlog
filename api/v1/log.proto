@@ -23,9 +23,22 @@ message ConsumeResponse {
     Record record = 2;
 }
 
+message GetServerRequest{}
+
+message Server {
+    string id = 1;
+    string rpc_addr = 2;
+    bool is_leader = 3;
+}
+
+message GetServerResponse{
+    repeated Server servers = 1;
+}
+
 service Log {
     rpc Produce(ProduceRequest) returns (ProduceResponse) {}
     rpc Consume(ConsumeRequest) returns (ConsumeResponse) {}
     rpc ConsumeStream(ConsumeRequest) returns (stream ConsumeResponse) {}
     rpc ProduceStream(stream ProduceRequest) returns (stream ProduceResponse) {}
+    rpc GetServers(GetServerRequest) returns (GetServerResponse) {}
 }
