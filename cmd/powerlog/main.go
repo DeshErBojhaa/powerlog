@@ -1,12 +1,15 @@
 package main
 
 import (
+	"errors"
 	"github.com/DeshErBojhaa/powerlog/internal/agent"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"log"
 	"os"
+	"os/signal"
 	"path"
+	"syscall"
 )
 
 func main() {
@@ -52,9 +55,35 @@ type cli struct {
 }
 
 func (c *cli) setupConfig(cmd *cobra.Command, args []string) error {
+	configFile, err := cmd.Flags().GetString("config-file")
+	if err != nil {
+		return err
+
+	}
+	viper.SetConfigFile(configFile)
+
+	if err = viper.ReadInConfig(); err != nil {
+		// Only return if err is not due to missing config file
+		if !errors.As(err, &viper.ConfigFileNotFoundError{}) {
+			return err
+		}
+	}
+	c.cfg.DataDir = viper.GetString("data-dir")
+	c.cfg.NodeName = viper.GetString("node-name")
+	c.cfg.BindAddr = viper.GetString("bind-addr")
+	c.cfg.RPCPort = viper.GetInt("rpc-port")
+	c.cfg.StartJoinAddrs = viper.GetStringSlice("start-join-addrs")
+	c.cfg.Bootstrap = viper.GetBool("bootstrap")
 	return nil
 }
 
 func (c *cli) run(cmd *cobra.Command, args []string) error {
-	return nil
+	a, err := agent.New(c.cfg.Config)
+	if err != nil {
+		return err
+	}
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	<-sigCh
+	return a.Shutdown()
 }
