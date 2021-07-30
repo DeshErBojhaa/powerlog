@@ -11,9 +11,11 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
 	"time"
 
 	grpcZap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 //CommitLog describes the functionality for the gRPC server.
@@ -60,13 +62,18 @@ func NewgRPCServer(config *Config, grpcOpts ...grpc.ServerOption) (*grpc.Server,
 		grpc.StatsHandler(&ocgrpc.ServerHandler{}),
 	)
 
-	gsrv := grpc.NewServer()
+	gSrv := grpc.NewServer(grpcOpts...)
+
+	hSrv := health.NewServer()
+	hSrv.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
+	healthpb.RegisterHealthServer(gSrv, hSrv)
+
 	srv, err := newgrpcServer(config)
 	if err != nil {
 		return nil, err
 	}
-	api.RegisterLogServer(gsrv, srv)
-	return gsrv, nil
+	api.RegisterLogServer(gSrv, srv)
+	return gSrv, nil
 }
 
 func newgrpcServer(config *Config) (*grpcServer, error) {
