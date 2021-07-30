@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "powerlog.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{ include "powerlog.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels: {{ include "powerlog.selectorLabels" . | nindent 6 }}
+  serviceName: {{ include "powerlog.fullname" . }}
+  replicas: {{ .Values.replicas }}
+  template:
+    metadata:
+      name: {{ include "powerlog.fullname" . }}
+      labels: {{ include "powerlog.labels" . | nindent 8 }}
+    spec:
+      # initContainers...
+      initContainers:
+        - name: { { include "powerlog.fullname" . } }-config-init
+          image: busybox
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |-
+              ID=$(echo $HOSTNAME | rev | cut -d- -f1 | rev)
+              cat > /var/run/powerlog/config.yaml <<EOD
+              data-dir: /var/run/powerlog/data
+              rpc-port: {{.Values.rpcPort}}
+              bind-addr: "$HOSTNAME.powerlog.{{.Release.Namespace}}.svc.cluster.local:{{.Values.serfPort}}"
+              bootstrap: $([ $ID = 0 ] && echo true || echo false)
+              $([ $ID != 0 ] && echo 'start-join-addrs: "powerlog-0.powerlog.{{.Release.Namespace}}.svc.cluster.local:{{.Values.serfPort}}"')
+              EOD
+          volumeMounts:
+            - name: datadir
+              mountPath: /var/run/powerlog
+      # containers...
+      containers:
+        - name: { { include "powerlog.fullname" . } }
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          ports:
+            - containerPort: { { .Values.rpcPort } }
+              name: rpc
+            - containerPort: { { .Values.serfPort } }
+              name: serf
+          args:
+            - --config-file=/var/run/powerlog/config.yaml
+          # probes...
+          readinessProbe:
+            exec:
+              command: [ "/bin/grpc_health_probe", "-addr=:{{ .Values.rpcPort }}" ]
+            initialDelaySeconds: 10
+          livenessProbe:
+            exec:
+              command: [ "/bin/grpc_health_probe", "-addr=:{{ .Values.rpcPort }}" ]
+            initialDelaySeconds: 10
+          volumeMounts:
+            - name: datadir
+              mountPath: /var/run/powerlog
+  volumeClaimTemplates:
+    - metadata:
+        name: datadir
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: {{ .Values.storage }}
