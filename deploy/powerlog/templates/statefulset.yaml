@@ -27,13 +27,9 @@ spec:
               cat > /var/run/powerlog/config.yaml <<EOD
               data-dir: /var/run/powerlog/data
               rpc-port: {{.Values.rpcPort}}
-              bind-addr: \
-                "$HOSTNAME.powerlog.{{.Release.Namespace}}.\svc.cluster.local:\
-                  {{.Values.serfPort}}"
+              bind-addr: "$HOSTNAME.powerlog.{{.Release.Namespace}}.svc.cluster.local:{{.Values.serfPort}}"
               bootstrap: $([ $ID = 0 ] && echo true || echo false)
-              $([ $ID != 0 ] && echo 'start-join-addrs: \
-                "powerlog-0.powerlog.{{.Release.Namespace}}.svc.cluster.local:\
-                  {{.Values.serfPort}}"')
+              $([ $ID != 0 ] && echo 'start-join-addrs: "powerlog-0.powerlog.{{.Release.Namespace}}.svc.cluster.local:{{.Values.serfPort}}"')
               EOD
           volumeMounts:
           - name: datadir
